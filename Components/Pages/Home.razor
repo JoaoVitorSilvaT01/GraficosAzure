@@ -1,0 +1,146 @@
+﻿@page "/"
+@using Components.Servicos
+@inject ServicoBasico Servico
+@rendermode InteractiveServer
+<div class="container">
+    <div class="left-pane">
+
+        @if (BaseResumos== null)
+        {
+            <div class="spinner"></div>
+        }
+
+        else
+        {
+            <table class="table">
+                <tr>
+                    <th>Empresa</th>
+                </tr>
+
+                @foreach (var item in BaseResumos)
+                {
+                    <tr>
+                        <td>@item.Empresa</td>
+                        <td>
+                            <RadzenButton Click="() => ShowChart(item)" Text="Gráficos"></RadzenButton>
+                        </td>
+                        </tr>
+                }
+            </table>
+        }
+    </div>
+    <div class="right-pane">
+       
+
+
+        <RadzenChart>
+            <RadzenColumnSeries Data="@data" CategoryProperty="nome" ValueProperty="valor" Title="Qtd Compensação" />
+            <RadzenColumnSeries Data="@data1" CategoryProperty="nome" ValueProperty="valor" Title="Qtd Consumo" />
+            <RadzenValueAxis Min="0" Max="7000" Step="2000">
+                <RadzenGridLines Visible="false" />
+            </RadzenValueAxis>
+            <RadzenLegend Position="LegendPosition.Bottom" />
+            <RadzenCategoryAxis>
+                <RadzenGridLines Visible="true" />
+            </RadzenCategoryAxis>
+        </RadzenChart>
+
+    </div>
+</div>
+<style>
+    .container {
+        display: flex;
+        height: 100vh;
+    }
+
+    .left-pane {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .right-pane {
+        flex: 1;
+        padding: 10px;
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+    }
+
+    .btn-primary {
+        margin-top: 10px;
+    }
+
+    .alert {
+        margin-top: 10px;
+    }
+
+    .spinner {
+        margin: 10px;
+    }
+</style>
+
+
+@code {
+    private List<BaseResumo> BaseResumos { get; set; }
+
+   
+
+
+    private class dataItem
+    {
+        public string nome { get; set; }
+        public double? valor { get; set; }
+    }
+
+    dataItem[] data = new dataItem[0];
+    dataItem[] data1 = new dataItem[0];
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        BaseResumos = await Servico.GetEntitiesAsync();
+
+    }
+
+    //static DateTime buscaData = DateTime.Now.AddMonths(-12);
+    //private List<BaseResumo> buscaData12 = BaseResumos.Where(dado => dado.DtBase)
+    //selecionar os meses ao inves de tentar buscar automatico
+
+    
+      
+
+    //problema quando encontra um valor de discount NULL
+    protected async Task ShowChart(BaseResumo item)
+    {
+        if (item.QtdConsumo == null || item.QtdCompensacao == null)
+        {
+            data = new dataItem[]
+        {
+            new dataItem { nome = item.Empresa, valor = 0 }
+        };
+
+            data1 = new dataItem[]
+            {
+                new dataItem { nome = item.Empresa, valor = 0 }
+            };
+
+        }
+        else
+        {
+            data = new dataItem[]
+            {
+            new dataItem { nome = item.Empresa, valor = item.QtdCompensacao }
+            };
+            data1 = new dataItem[]
+            {
+            new dataItem { nome = item.Empresa, valor = item.QtdConsumo }
+            };
+            
+        }
+        StateHasChanged();
+    }
+}

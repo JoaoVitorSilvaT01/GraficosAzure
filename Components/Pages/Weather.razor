@@ -1,0 +1,105 @@
+﻿@page "/weather"
+@using Components.Servicos
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+
+
+@inject PostgresContext _context
+@if (_context.BaseResumos == null)
+{
+    <div class="spinner"></div>
+}
+else
+{
+    <PageTitle>Gráficos</PageTitle>
+
+    <RadzenStack class="rz-p-0 rz-p-md-6 rz-p-lg-12">
+        <RadzenCard Variant="Variant.Outlined">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@smooth" Name="smooth"></RadzenCheckBox>
+                    <RadzenLabel Text="suavizar" Component="smooth" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels"></RadzenCheckBox>
+                    <RadzenLabel Text="valores" Component="dataLabels" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@showMarkers" Name="markers"></RadzenCheckBox>
+                    <RadzenLabel Text="marcadores" Component="markers" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenDropDown @bind-Value="selectedEmpresa" Data="@empresas" TextProperty="Nome" ValueProperty="Nome" Style="margin-bottom: 1rem;" />
+        <RadzenButton Text="Gerar Gráfico" Click="OnGenerateGraph" />
+
+            <RadzenChart>
+                <RadzenChartTooltipOptions  />
+                <RadzenLineSeries Smooth="@smooth" Data="@dados" CategoryProperty="Periodo" Title="Consumo (FORAP e PONTA)" ValueProperty="Valor">
+                    <RadzenMarkers Visible="@showMarkers" MarkerType="MarkerType.Circle" />
+                    <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                </RadzenLineSeries>
+                <RadzenCategoryAxis Padding="20" />
+                <RadzenValueAxis >
+                    <RadzenGridLines Visible="true" />
+                    <RadzenAxisTitle Text="Valor" />
+                </RadzenValueAxis>
+            </RadzenChart>
+       
+    </RadzenStack>
+
+    @code {
+    private string selectedEmpresa;
+    private List<Empresa> empresas;
+    private IEnumerable<PontosGrafico> dados;
+
+    // Configurações para o gráfico
+    bool smooth = false;
+    bool showDataLabels = false;
+    bool showMarkers = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        empresas = await _context.BaseResumos
+            .Select(d => d.Empresa)
+            .Distinct()
+            .Select(nome => new Empresa { Nome = nome })
+            .ToListAsync();
+    }
+
+    private async Task OnGenerateGraph()
+    {
+        if (!string.IsNullOrEmpty(selectedEmpresa))
+        {
+            var filtro = await _context.BaseResumos
+                .Where(d => d.Empresa == selectedEmpresa &&
+                            (d.PostoHorario == "FORAP" || d.PostoHorario == "PONTA"))
+                .OrderByDescending(d => d.Periodo)
+                .Take(12)
+                .GroupBy(d => d.Periodo)
+                .Select(g => new PontosGrafico
+                    {
+                        Periodo = g.Key,
+                        Valor = g.Sum(d => d.QtdConsumo)
+                    })
+                .OrderBy(g => g.Periodo)
+                .ToListAsync();
+
+            dados = filtro;
+        }
+    }
+
+    public class PontosGrafico
+    {
+        public String Periodo { get; set; }
+        public double Valor { get; set; }
+    }
+
+ 
+
+   
+}
+
+}

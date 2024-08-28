@@ -1,0 +1,106 @@
+﻿@page "/forecastGen"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@inject PostgresContext _context
+
+@if (_context.ForecastGenerators == null)
+{
+    <div class="spinner"></div> 
+}
+else
+{
+    <PageTitle>Gráficos</PageTitle> 
+
+    <RadzenStack class="rz-p-0 rz-p-md-6 rz-p-lg-12">
+        <RadzenCard Variant="Variant.Outlined">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@smooth" Name="smooth"></RadzenCheckBox>
+                    <RadzenLabel Text="suavizar" Component="smooth" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels"></RadzenCheckBox>
+                    <RadzenLabel Text="valores" Component="dataLabels" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="@showMarkers" Name="markers"></RadzenCheckBox>
+                    <RadzenLabel Text="marcadores" Component="markers" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenDropDown @bind-Value="selectedUsina" Data="@usinas" TextProperty="Nome" ValueProperty="Nome" Style="margin-bottom: 1rem;" />
+        <RadzenButton Text="Gerar Gráfico" Click="OnGenerateGraph" />
+
+        <RadzenChart>
+            <RadzenChartTooltipOptions />
+            <RadzenLineSeries Smooth="@smooth" Data="@dados" CategoryProperty="MesAno" Title="Geração" ValueProperty="Geracao">
+                <RadzenMarkers Visible="@showMarkers" MarkerType="MarkerType.Circle" />
+                <RadzenSeriesDataLabels Visible="@showDataLabels" />
+            </RadzenLineSeries>
+            <RadzenCategoryAxis Padding="20" />
+            <RadzenValueAxis>
+                <RadzenGridLines Visible="true" />
+                <RadzenAxisTitle Text="Valor" />
+            </RadzenValueAxis>
+        </RadzenChart>
+
+    </RadzenStack>
+
+    @code {
+    private string selectedUsina;
+    private List<Usina> usinas;
+    private IEnumerable<PontosGrafico> dados;
+
+    //checkbox do gráfico
+    bool smooth = false;
+    bool showDataLabels = false;
+    bool showMarkers = true;
+
+    //carrega todos os nomes de usina no início
+    protected override async Task OnInitializedAsync()
+    {
+        usinas = await _context.ForecastGenerators
+            .Select(d => d.Usina)
+            .Distinct()
+            .Select(nome => new Usina { Nome = nome })
+            .ToListAsync();
+    }
+
+    //aqui é pra criar os pontos do gráfico com base na usina 
+    private async Task OnGenerateGraph()
+    {
+        if (!string.IsNullOrEmpty(selectedUsina))
+        {
+            
+            var dadosFiltrados = await _context.ForecastGenerators
+                .Where(d => d.Usina == selectedUsina)
+                .OrderByDescending(d => d.MesAno)  
+                .Take(12) //pegar os ultimos 12 meses
+                .OrderBy(d => d.MesAno)
+                .Select(d => new PontosGrafico
+                    {
+                        MesAno = d.MesAno,
+                        Geracao = double.Parse(d.Geracao)  
+                    })
+                .ToListAsync();
+
+            dados = dadosFiltrados;
+        }
+    }
+
+    public class PontosGrafico
+    {
+        public String MesAno { get; set; }
+        public double Geracao{ get; set; }
+    }
+
+    public class Usina
+    {
+        public string Nome { get; set; }
+    }
+
+
+}
+
+}
